@@ -33,11 +33,9 @@ The mutation protocol is as follows:
     
     Keys are locked by a checkAndPut to a special lock column.
     Given any column-key `x` the lock column is `x_lock`.
-    
-    Any value in `x_tag` indicates the column is locked. 
+    Any value in `x_lock` indicates the column is locked. 
     Transactions should write their timestamp to the lock column,
     so a locked cell can always be associated to a transaction.
-    
     Transactions must respect other locks and either wait or abort 
     when required lock is encountered.
 
@@ -47,7 +45,6 @@ The mutation protocol is as follows:
     
     Remember that a transaction must lock any cells required by
     the list of `Assertion`s.
-    
     Should any assertions fail the transaction must aborted, and 
     all locks released safely.
 
