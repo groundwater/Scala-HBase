@@ -20,63 +20,62 @@ The mutation protocol is as follows:
 
 1. The entire transaction is pre-written
     
-    The transaction object is encoded as a byte stream and recorded
-    in a special row `transaction.<timestamp>.uid`. Column `buffer`
-    encodes the transaction object. The column `status` encodes the
-    global status of the transaction.
+    The transaction is encoded as a byte stream and recorded
+    in a special row `transaction.<timestamp>` with two columns,
+    `buffer` and `status`.
     
-    Set status to `0-WRITTEN`
+    The column `buffer` holds the transaction object, while `status` 
+    holds the global status of the transaction.
+    
+    After the transaction is written, the global status is set to `0-WRITTEN`
 
 2. Lock all keys listed by mutations or assertions
     
     Keys are locked by a checkAndPut to a special lock column.
-    Given any key `x` the lock column is `x_lock`. 
-    Any value means the column is locked. The tag value should be 
-    the uid of the transactions row. Transactions must respect existing
-    locks and either wait or abort in such a case.
+    Given any column-key `x` the lock column is `x_lock`.
+    
+    Any value in `x_tag` indicates the column is locked. 
+    Transactions should write their timestamp to the lock column,
+    so a locked cell can always be associated to a transaction.
+    
+    Transactions must respect other locks and either wait or abort 
+    when required lock is encountered.
 
-    Set the global status to `1-LOCKED`
+    After all locks are set change the global status to `1-LOCKED`
 
 3. Run all assertions
     
-    Remember that any asserted cells must be locked in the previous
-    stage. Assertions that fail must abort the transaction.
+    Remember that a transaction must lock any cells required by
+    the list of `Assertion`s.
+    
+    Should any assertions fail the transaction must aborted, and 
+    all locks released safely.
 
-    Set the global status to `2-ASSERTED`
+    If all assertions succeed, set the global status to `2-ASSERTED`
 
 4. Mutate values
     
     By now, if the transaction should halt due to a crash, recovery
     software should complete the transaction during recovery.
-
-    Since HBase never over-writes old values, data is never really lost
-    except during a compactions. Just for safety, tag the old version 
-    by putting its timestamp into `x_tag`.
-
-    Put the new value.
-
-    Once all values are inserted, set the global status to `3-PUT`
-
-5. Cleanup
+    
+    Apply all mutations.
+    
+    Non-crash errors that occur at this stage, such as IOExceptions
+    the transaction must still be completed. Although it is possibly
+    to recover the old atomic state.
+    
+    Once all values are mutated, set the global status to `3-MUTATED`
 	
-    The transaction is done, but the safety measures must be cleaned
-    up gracefully.
-
-    Clear all `x_tag` values then set the global status to `4-CLEANING`.
+5. Unlock
 	
-6. Unlock
-	
-    Unlock all the cells. An unloced cell sboudl be immediately available  
+    Unlock all the cells. An unlocked cell should be immediately available  
     for another transaction, even before the rest of the cells are unlocked.
 
-    After all tags are unlocked, set the global status to `5-COMPLETE`
+    After all tags are unlocked, set the global status to `4-COMPLETED`
 
-Cleanup of transaction rows can be done at the discression of the administrators.
+Cleanup of transaction rows can be done at the discretion of the administrators.
 
 ## Discussion ##
-
-I'm not sure if the `x_tag` is necessary. Certainly HBase makes it easier
-to recover from transactions by never deleting old data. 
 
 I'd like to point out again that this is not intended to be a high-performance
 addition to HBase. Rather, should you build 90% of your application in HBase
