@@ -24,8 +24,8 @@ The mutation protocol is as follows:
     in a special row `transaction.<timestamp>.uid`. Column `buffer`
     encodes the transaction object. The column `status` encodes the
     global status of the transaction.
-
-Set status to `0-WRITTEN`
+    
+    Set status to `0-WRITTEN`
 
 2. Lock all keys listed by mutations or assertions
     
