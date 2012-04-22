@@ -66,7 +66,7 @@ class HelloWorldSpec extends Specification {
             val mut = Mutation("a:b:c","HELLO")
             mut must not be null
         }
-        "Implicit using ~" in {
+        "Implicit using ->" in {
             val mut: Mutation = "a:b:c" ~ "d"
             mut must not be null
         }
@@ -104,12 +104,19 @@ class HelloWorldSpec extends Specification {
             val convo = new TransactionalBasic()
             convo.commit("a:b:c"~"D")
             convo.commit("a:b:c"~1)
+            convo must not be null
+        }
+        "convert map" in {
+            val convo = new TransactionalBasic()
+            val m = Map("a:b:c"->"d","g:h:b"->"12")
             
+            convo.commit(m)
             convo must not be null
         }
     }
     
 }
+
 
 
 

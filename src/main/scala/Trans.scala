@@ -1,5 +1,6 @@
 package ca.underflow.hbase
 
+import org.apache.hadoop.hbase._
 import org.apache.hadoop.hbase.client._
 import org.apache.hadoop.hbase.coprocessor._
 import org.apache.hadoop.hbase.ipc._
@@ -21,6 +22,9 @@ object Convert {
             val key: Key = s
         }
     }    
+    implicit def MutationsFromMap[T <% Key,R <% Value](m: Map[T,R]) : Iterable[Mutation] = {
+        m.map { case(key,value) => Mutation(key,value) }
+    }
 }
 
 trait Data {
@@ -114,7 +118,12 @@ trait Transactional extends CoprocessorProtocol {
 class TransactionalBasic
         extends BaseEndpointCoprocessor
         with CoprocessorProtocol {
-            
+    private var env: CoprocessorEnvironment = null
+    override def start(env: CoprocessorEnvironment){
+        this.env = env
+    }
+    override def getEnvironment() = env
+    
     def commit(mutations: Iterable[Mutation]) {}
     def commit(mutations: Iterable[Mutation], assertions: Iterable[Assertion]) {}
 
