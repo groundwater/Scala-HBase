@@ -1,104 +1,13 @@
-This builds a transactional layer into HBase via coprocessors.
+The main discussion of the project is at 
 
-Transactions can be performed by sending a group of mutations,
-to a coprocessor. The coprocessor modifies the table using a
-special mutation protocol that ensures anyone using the same
-protocol will only view atomic commits.
+    https://github.com/jacobgroundwater/Scala-HBase/wiki
 
-Querying the table directly does not guaruntee atomicity. You
-_must_ query using the provided protocol.
+## License ##
 
-The protocol guaruntees that, should a crash occur, partial
-transactions can be recovered.
+Copyright (c) 2012 Jacob Groundwater
 
-The goal of this protocol is _not_ performance. It is an extra
-layer of guaruntees should they be required.
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-## Mutation Protocol ##
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-The mutation protocol is as follows:
-
-1. The entire transaction is pre-written
-    
-    The transaction is encoded as a byte stream and recorded
-    in a special row `transaction.<timestamp>` with two columns,
-    `buffer` and `status`.
-    
-    The column `buffer` holds the transaction object, while `status` 
-    holds the global status of the transaction.
-    
-    After the transaction is written, the global status is set to `0-WRITTEN`
-
-2. Lock all keys listed by mutations or assertions
-    
-    Keys are locked by a checkAndPut to a special lock column.
-    Given any column-key `x` the lock column is `x_lock`.
-    Any value in `x_lock` indicates the column is locked. 
-    Transactions should write their timestamp to the lock column,
-    so a locked cell can always be associated to a transaction.
-    Transactions must respect other locks and either wait or abort 
-    when required lock is encountered.
-
-    After all locks are set change the global status to `1-LOCKED`
-
-3. Run all assertions
-    
-    Remember that a transaction must lock any cells required by
-    the list of `Assertion`s.
-    Should any assertions fail the transaction must be aborted, and 
-    all locks released safely.
-
-    If all assertions succeed, set the global status to `2-ASSERTED`
-
-4. Mutate values
-    
-    By now, if the transaction should halt due to a crash, recovery
-    software should complete the transaction during recovery.
-    
-    Apply all mutations.
-    
-    Non-crash errors that occur at this stage, such as IOExceptions
-    are not rolled back. The transaction should be recovered and completed.
-    
-    Once all values are mutated, set the global status to `3-MUTATED`
-	
-5. Unlock
-	
-    Unlock all the cells. An unlocked cell should be immediately available
-    for another transaction, even before the rest of the cells are unlocked.
-    
-    After all tags are unlocked, set the global status to `4-COMPLETED`
-
-Cleanup of transaction rows can be done at the discretion of the administrators.
-
-## Discussion ##
-
-I'd like to point out again that this is not intended to be a high-performance
-addition to HBase. Rather, should you build 90% of your application in HBase
-then decide a small piece needs some transactional security, this is an easy
-option to throw in the mix. Don't use it unless it's necessary.
-
-I think any good implementation will require a `fsck` that can be run 
-post crash. That should be added into the coprocessor at some point.
-
-## Lock Arbitration ##
-
-If your coprocessors are contending for locks too often, you probably need a real relational database. However we definitely need some way to schedule transactions around each other.
-
-### Wait and Call ###
-
-Transactions can register with each other 
-for notification. When one transaction completes, it can notify another.
-Transactions that encounter a block can discover the blocking transactions
-id by reading the `x_tag` column of the locked column.
-
-When a transaction completes, it writes any value to its `closed` column.
-After marking the transaction closed it checks for the existence of a `callback`
-column in its transaction log. If it exists, it reads the ids listed there
-and notifies each transaction listed that it has completed.
-
-When a transaction is blocked, it should register a callback with the blocking
-transaction. To avoid race conditions, the blocked transaction should do a
-`checkAndPut` on the transactions `closed` column when writing the callback.
-If the `put` fails, the blocking transaction has completed. In this case, try
-locking the cell again.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
