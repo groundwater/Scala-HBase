@@ -1,6 +1,6 @@
 The main discussion of the project is at 
 
-    https://github.com/jacobgroundwater/Scala-HBase/wiki
+* https://github.com/jacobgroundwater/Scala-HBase/wiki
 
 ## License ##
 
