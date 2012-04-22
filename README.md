@@ -58,8 +58,7 @@ The mutation protocol is as follows:
     Apply all mutations.
     
     Non-crash errors that occur at this stage, such as IOExceptions
-    the transaction must still be completed. Although it is possibly
-    to recover the old atomic state.
+    are not rolled back. The transaction should be recovered and completed.
     
     Once all values are mutated, set the global status to `3-MUTATED`
 	
@@ -81,3 +80,11 @@ option to throw in the mix. Don't use it unless it's necessary.
 
 I think any good implementation will require a `fsck` that can be run 
 post crash. That should be added into the coprocessor at some point.
+
+## Lock Arbitration ##
+
+If your coprocessors are contending for locks too often, you probably need a real relational database. However we definitely need some way to schedule transactions around each other.
+
+### Wait and Call ###
+
+Should a transaction encounter a locked cell, it reads the timestamp of the transaction from the `x_tag` column. The transaction does a checkAndPut on the transaction...
