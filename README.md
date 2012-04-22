@@ -2,7 +2,7 @@ The main discussion of the project is at
 
 * https://github.com/jacobgroundwater/Scala-HBase/wiki
 
-## License ##
+## MIT License ##
 
 Copyright (c) 2012 Jacob Groundwater
 
