@@ -45,7 +45,7 @@ The mutation protocol is as follows:
     
     Remember that a transaction must lock any cells required by
     the list of `Assertion`s.
-    Should any assertions fail the transaction must aborted, and 
+    Should any assertions fail the transaction must be aborted, and 
     all locks released safely.
 
     If all assertions succeed, set the global status to `2-ASSERTED`
@@ -64,9 +64,9 @@ The mutation protocol is as follows:
 	
 5. Unlock
 	
-    Unlock all the cells. An unlocked cell should be immediately available  
+    Unlock all the cells. An unlocked cell should be immediately available
     for another transaction, even before the rest of the cells are unlocked.
-
+    
     After all tags are unlocked, set the global status to `4-COMPLETED`
 
 Cleanup of transaction rows can be done at the discretion of the administrators.
@@ -87,4 +87,18 @@ If your coprocessors are contending for locks too often, you probably need a rea
 
 ### Wait and Call ###
 
-Should a transaction encounter a locked cell, it reads the timestamp of the transaction from the `x_tag` column. The transaction does a checkAndPut on the transaction...
+Transactions can register with each other 
+for notification. When one transaction completes, it can notify another.
+Transactions that encounter a block can discover the blocking transactions
+id by reading the `x_tag` column of the locked column.
+
+When a transaction completes, it writes any value to its `closed` column.
+After marking the transaction closed it checks for the existence of a `callback`
+column in its transaction log. If it exists, it reads the ids listed there
+and notifies each transaction listed that it has completed.
+
+When a transaction is blocked, it should register a callback with the blocking
+transaction. To avoid race conditions, the blocked transaction should do a
+`checkAndPut` on the transactions `closed` column when writing the callback.
+If the `put` fails, the blocking transaction has completed. In this case, try
+locking the cell again.
